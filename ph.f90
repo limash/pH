@@ -6,17 +6,24 @@ module ph
     implicit none
     private
 
-    public solver
+    public ph_solver
 
 contains
 
-    subroutine solver(alktot, dictot, bortot, &
+    subroutine ph_solver(alktot, dictot, bortot, &
+            po4tot, siltot, nh3tot, hstot, so4tot, flutot, &
             kc1, kc2, kb)
 
         real(rk), intent(in):: alktot !total alkalinity
         real(rk), intent(in):: dictot !total dissolved
                                       !inorganic carbon
         real(rk), intent(in):: bortot !total boron
+        real(rk), intent(in):: po4tot !total po4
+        real(rk), intent(in):: siltot !total silicate
+        real(rk), intent(in):: nh3tot !total nh3
+        real(rk), intent(in):: hstot  !total hs
+        real(rk), intent(in):: so4tot !total so4
+        real(rk), intent(in):: flutot !total fluor
         !dissociation constants
         real(rk), intent(in):: kc1 !1st of carbonic acid
         real(rk), intent(in):: kc2 !2nd of carbonic acid
@@ -24,12 +31,19 @@ contains
 
         ![H+] starting value
         real(rk):: initial_h
+        !bracketing bounds for alk
+        real(rk):: alkinf, alksup
 
         !calculates initial [H+] value
         call initial_h_do(alktot, dictot, bortot, &
             kc1, kc2, kb, initial_h)
 
-    end subroutine solver
+        !calculates bracketing bounds for alk
+        call alk_infsup(dictot, bortot, &
+            po4tot, siltot, nh3tot, hstot, &
+            so4tot, flutot, alkinf, alksup)
+
+    end subroutine ph_solver
 
     subroutine initial_h_do(alktot, dictot, bortot, &
             kc1, kc2, kb, initial_h)
@@ -88,4 +102,29 @@ contains
 
     end subroutine initial_h_do
 
+    subroutine alk_infsup(dictot, bortot, &
+        po4tot, siltot, nh3tot, hstot, &
+        so4tot, flutot, alkinf, alksup)
+    !calculates bracketing bounds for alk
+
+        real(rk), intent(in):: dictot
+        real(rk), intent(in):: bortot
+        real(rk), intent(in):: po4tot
+        real(rk), intent(in):: siltot
+        real(rk), intent(in):: nh3tot
+        real(rk), intent(in):: hstot
+        real(rk), intent(in):: so4tot
+        real(rk), intent(in):: flutot
+        !bracketing bounds for alk
+        real(rk), intent(out):: alkinf
+        real(rk), intent(out):: alksup
+        !one more discriminant
+        real(rk):: delta
+
+        alkinf = -po4tot-so4tot-flutot
+        alksup = dictot + dictot + bortot + &
+                 po4tot + po4tot + siltot + &
+                 nh3tot + hstot
+
+    end subroutine alk_infsup
 end module ph
