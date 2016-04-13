@@ -12,7 +12,7 @@ contains
 
     subroutine ph_solver(alktot, dictot, bortot, &
             po4tot, siltot, nh3tot, hstot, so4tot, flutot, &
-            kc1, kc2, kb)
+            kc1, kc2, kb, kw)
 
         real(rk), intent(in):: alktot !total alkalinity
         real(rk), intent(in):: dictot !total dissolved
@@ -28,20 +28,55 @@ contains
         real(rk), intent(in):: kc1 !1st of carbonic acid
         real(rk), intent(in):: kc2 !2nd of carbonic acid
         real(rk), intent(in):: kb  !boric acid
+        real(rk), intent(in):: kw  !water
+        !auxiliary
+        real(rk), intent(in):: iter, absmin
 
-        ![H+] starting value
-        real(rk):: initial_h
+        !discriminant of the main equation R([H+])=0
+        real(rk):: delta
+        ![H+] starting value and etc.
+        real(rk):: initial_h, h, h_prev
         !bracketing bounds for alk
         real(rk):: alkinf, alksup
+        !bracketing bounds for [H+]
+        real(rk):: h_min, h_max
 
-        !calculates initial [H+] value
+        !calculate initial [H+] value
         call initial_h_do(alktot, dictot, bortot, &
             kc1, kc2, kb, initial_h)
 
-        !calculates bracketing bounds for alk
-        call alk_infsup(dictot, bortot, &
-            po4tot, siltot, nh3tot, hstot, &
-            so4tot, flutot, alkinf, alksup)
+        !calculate bracketing bounds for alk
+        alkinf = -po4tot-so4tot-flutot
+        alksup = dictot+dictot+bortot+ &
+                 po4tot+po4tot+siltot+ &
+                 nh3tot+hstot
+ 
+        !calculate discriminant for lower bound
+        delta = (alktot-alkinf)**2+4._rk*kw
+        !calculate lower bound
+        if (alktot >= alkinf) then
+            h_min = 2._rk*kw/(alktot-alkinf+sqrt(delta))
+        else
+            h_min = (-(alktot-alkinf)+sqrt(delta))/2._rk
+        end if
+
+        !calculate discriminant for upper bound
+        delta = (alktot-alksup)**2+4._rk*kw
+        !calculate upper bound
+        if (alktot <= alksup) then
+            h_max = (-(alktot-alksup)+sqrt(delta))/2._rk
+        else
+            h_max = 2._rk*kw/(alktot-alksup+sqrt(delta))
+        end if
+
+        !main algorithm
+        h = max(min(h_max, initial_h), h_min)
+        iter = 0
+        absmin = huge(1._rk)
+        do
+            h_prev = h
+
+        end do
 
     end subroutine ph_solver
 
@@ -81,7 +116,6 @@ contains
 
             !discriminant of the quadratic equation
             !(derivative of the cubic equation)
-            !devided by 4
             !for the minimum close to the root
             d = a2*a2-3._rk*a1
 
@@ -102,29 +136,4 @@ contains
 
     end subroutine initial_h_do
 
-    subroutine alk_infsup(dictot, bortot, &
-        po4tot, siltot, nh3tot, hstot, &
-        so4tot, flutot, alkinf, alksup)
-    !calculates bracketing bounds for alk
-
-        real(rk), intent(in):: dictot
-        real(rk), intent(in):: bortot
-        real(rk), intent(in):: po4tot
-        real(rk), intent(in):: siltot
-        real(rk), intent(in):: nh3tot
-        real(rk), intent(in):: hstot
-        real(rk), intent(in):: so4tot
-        real(rk), intent(in):: flutot
-        !bracketing bounds for alk
-        real(rk), intent(out):: alkinf
-        real(rk), intent(out):: alksup
-        !one more discriminant
-        real(rk):: delta
-
-        alkinf = -po4tot-so4tot-flutot
-        alksup = dictot + dictot + bortot + &
-                 po4tot + po4tot + siltot + &
-                 nh3tot + hstot
-
-    end subroutine alk_infsup
 end module ph
