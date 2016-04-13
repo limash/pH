@@ -81,7 +81,7 @@ contains
         do
             h_prev = h
             !return value (r) of main equation for given [H+]
-            !and its derivative (dr) pH-Alk space?
+            !and its derivative (dr)
             call r_calc(h, alktot, dictot, bortot, po4tot, &
                 siltot, nh4tot, hstot, so4tot, flutot, &
                 kc1, kc2, kb, kp1, kp2, kp3, ks, kn, khs, kw, &
