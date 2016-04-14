@@ -50,6 +50,8 @@ contains
         real(rk):: alkinf, alksup
         !bracketing bounds for [H+]
         real(rk):: h_min, h_max
+        !required for convergence test
+        real(rk):: h_fac
         !auxiliary
         real(rk):: iter, absmin
         logical:: exitnow
@@ -113,7 +115,7 @@ contains
                 h_fac = (h-h_prev)/h_prev
             else
                 h_fac = -r/(dr*h_prev)
-                if(abs(h_fac) > 1.0_rk then
+                if(abs(h_fac) > 1.0_rk) then
                 !Newton-Raphson at pH-Alk space
                     h = h_prev*exp(h_fac)
                 else
@@ -132,7 +134,7 @@ contains
                 end if
             end if
 
-            absmin = min(abs(r, absmin)
+            absmin = min(abs(r), absmin)
             exitnow = (abs(h_fac) < 1.e-8_rk) 
             if (exitnow) exit
         end do
@@ -188,7 +190,7 @@ contains
                     h_min = -a1/(a2+d_sqrt)
                 end if
 
-                initial_h = h_min+sqrt(-(a0+h_min*(a1+h_min(a2+hmin))) &
+                initial_h = h_min+sqrt(-(a0+h_min*(a1+h_min*(a2+h_min))) &
                     /d_sqrt)
             else
                 initial_h = 1.e-7_rk
@@ -225,7 +227,7 @@ contains
         real(rk), intent(in):: khs !Hydrogen sulfide
         real(rk), intent(in):: kw  !water
         !output variables
-        real(rk), intent(out):: r, rd
+        real(rk), intent(out):: r, dr
 
         real(rk):: dic1, dic2, dic, dddic, ddic
         real(rk):: bor1, bor2, bor, ddbor, dbor
@@ -236,7 +238,7 @@ contains
         real(rk):: wat
 
         !H2CO3 - HCO3 - CO3
-        dic1 = 2._wp*kc2 + h*       kc1
+        dic1 = 2._rk*kc2 + h*       kc1
         dic2 =       kc2 + h*(      kc1 + h)
         dic  = dictot * (dic1/dic2)
         !B(OH)3 - B(OH)4
@@ -244,9 +246,9 @@ contains
         bor2 =       kb + h
         bor  = bortot * (bor1/bor2)
         !H3PO4 - H2PO4 - HPO4 - PO4
-        po4_1 = 3._wp*kp3 + h*(2._wp*kp2 + h* kp1)
+        po4_1 = 3._rk*kp3 + h*(2._rk*kp2 + h* kp1)
         po4_2 =       kp3 + h*(      kp2 + h*(kp1 + h))
-        po4   = po4tot * (po4_1/po4_2 - 1._wp) ! Zero level of H3PO4 = 1
+        po4   = po4tot * (po4_1/po4_2 - 1._rk) ! Zero level of H3PO4 = 1
         !H4SiO4 - H3SiO4
         sil1 =       ks
         sil2 =       ks + h
@@ -267,15 +269,15 @@ contains
           + wat - alktot
 
         !H2CO3 - HCO3 - CO3
-        dddic = kc1*kc2 + h*(4._wp*kc2+h*kc1)
+        dddic = kc1*kc2 + h*(4._rk*kc2+h*kc1)
         ddic  = -dictot*(dddic/dic2**2)
         !B(OH)3 - B(OH)4
         ddbor = kb
         dbor  = -bortot*(ddbor/bor2**2)
         !H3PO4 - H2PO4 - HPO4 - PO4
-        ddpo4 = kp2*kp3 + h*(4._wp*kp1*kp3 &
-              + h*(9._wp*kp3 + kp1*kp2     &
-              + h*(4._wp*kp2               &
+        ddpo4 = kp2*kp3 + h*(4._rk*kp1*kp3 &
+              + h*(9._rk*kp3 + kp1*kp2     &
+              + h*(4._rk*kp2               &
               + h*       kp1)))
         dpo4   = -po4tot * (ddpo4/po4_2**2)
         !H4SiO4 - H3SiO4
@@ -286,7 +288,7 @@ contains
         dnh4  = -nh4tot * (ddnh4/nh4_2**2)
         !H2S - HS
         ddh2s = khs
-        dh2s  = -h2stot * (ddh2s/h2s_2**2)
+        dh2s  = -hstot * (ddh2s/h2s_2**2)
 
         dr = ddic + dbor + dpo4 + dsil &
            + dnh4 + dh2s &
