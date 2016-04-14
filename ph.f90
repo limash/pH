@@ -1,5 +1,10 @@
+!adopted from:
+!Munhoven, G.: Mathematics of the total alkalinity-pH equation
+! – pathway to robust and universal solution algorithms:
+! the SolveSAPHE package v1.0.1, Geosci. Model Dev., 6, 1367–
+! 1388, doi:10.5194/gmd-6-1367-2013, 2013.
+
 module ph
-!adopted from Munhoven2013
 
     use fabm_types, only: rk
 
@@ -10,9 +15,11 @@ module ph
 
 contains
 
-    subroutine ph_solver(alktot, dictot, bortot, &
+    function ph_solver(alktot, dictot, bortot, &
             po4tot, siltot, nh4tot, hstot, so4tot, flutot, &
             kc1, kc2, kb, kp1, kp2, kp3, ks, kn, khs, kw)
+
+        real(rk):: ph_solver
 
         real(rk), intent(in):: alktot !total alkalinity
         real(rk), intent(in):: dictot !total dissolved
@@ -45,6 +52,7 @@ contains
         real(rk):: h_min, h_max
         !auxiliary
         real(rk):: iter, absmin
+        logical:: exitnow
 
         !calculate initial [H+] value
         call initial_h_do(alktot, dictot, bortot, &
@@ -98,15 +106,40 @@ contains
 
             iter = iter + 1
 
-            !bisection method pH-Alk space
             if (abs(r) >= 0.5_rk*absmin) then
-                h = sqrt(h_max * h_min)
+            !bisection method pH-Alk space
+                h = sqrt(h_max*h_min)
                 !required for convergence test
                 h_fac = (h-h_prev)/h_prev
+            else
+                h_fac = -r/(dr*h_prev)
+                if(abs(h_fac) > 1.0_rk then
+                !Newton-Raphson at pH-Alk space
+                    h = h_prev*exp(h_fac)
+                else
+                !Newton-Raphson at H-Alk space
+                    h = h_prev+h_fac*h_prev
+                end if
+                !boundaries check
+                !if not succeed perform bisection step
+                if (h<h_min) then
+                    h = sqrt(h_prev*h_min)
+                    h_fac = (h-h_prev)/h_prev
+                end if
+                if (h>h_max) then
+                    h = sqrt(h_prev*h_max)
+                    h_fac = (h-h_prev)/h_prev
+                end if
+            end if
 
+            absmin = min(abs(r, absmin)
+            exitnow = (abs(h_fac) < 1.e-8_rk) 
+            if (exitnow) exit
         end do
 
-    end subroutine ph_solver
+        ph_solver = h
+
+    end function ph_solver
 
     subroutine initial_h_do(alktot, dictot, bortot, &
             kc1, kc2, kb, initial_h)
@@ -262,3 +295,6 @@ contains
     end subroutine r_calc
 
 end module ph
+!-----------------------------------------------------------------------
+! Copyright under the GNU Public License - www.gnu.org
+!-----------------------------------------------------------------------
