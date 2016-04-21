@@ -17,7 +17,8 @@ contains
 
     function ph_solver(alktot, dictot, bortot, &
             po4tot, siltot, nh4tot, hstot, so4tot, flutot, &
-            kc1, kc2, kb, kp1, kp2, kp3, ksi, kn, khs, kw)
+            kc1, kc2, kb, kp1, kp2, kp3, ksi, kn, khs, &
+            kso4, kflu, kw)
 
         real(rk):: ph_solver
 
@@ -39,6 +40,8 @@ contains
         real(rk), intent(in):: ksi !silicic acid
         real(rk), intent(in):: kn  !Ammonia
         real(rk), intent(in):: khs !Hydrogen sulfide
+        real(rk), intent(in):: kso4
+        real(rk), intent(in):: kflu
         real(rk), intent(in):: kw  !water
 
         !discriminant of the main equation R([H+])=0
@@ -52,6 +55,8 @@ contains
         real(rk):: h_min, h_max
         !required for convergence test
         real(rk):: h_fac
+        !ph_scale factor
+        real(rk):: ph_scale = 1._rk
         !auxiliary
         real(rk):: iter, absmin
         logical:: exitnow
@@ -67,19 +72,19 @@ contains
                  nh4tot+hstot
  
         !calculate discriminant for lower bound
-        delta = (alktot-alkinf)**2+4._rk*kw
+        delta = (alktot-alkinf)**2+4._rk*kw/ph_scale
         !calculate lower bound
         if (alktot >= alkinf) then
             h_min = 2._rk*kw/(alktot-alkinf+sqrt(delta))
         else
-            h_min = (-(alktot-alkinf)+sqrt(delta))/2._rk
+            h_min = ph_scale*(-(alktot-alkinf)+sqrt(delta))/2._rk
         end if
 
         !calculate discriminant for upper bound
-        delta = (alktot-alksup)**2+4._rk*kw
+        delta = (alktot-alksup)**2+4._rk*kw/ph_scale
         !calculate upper bound
         if (alktot <= alksup) then
-            h_max = (-(alktot-alksup)+sqrt(delta))/2._rk
+            h_max = ph_scale*(-(alktot-alksup)+sqrt(delta))/2._rk
         else
             h_max = 2._rk*kw/(alktot-alksup+sqrt(delta))
         end if
@@ -94,8 +99,8 @@ contains
             !and its derivative (dr)
             call r_calc(h, alktot, dictot, bortot, po4tot, &
                 siltot, nh4tot, hstot, so4tot, flutot, &
-                kc1, kc2, kb, kp1, kp2, kp3, ksi, kn, khs, kw, &
-                r, dr)
+                kc1, kc2, kb, kp1, kp2, kp3, ksi, kn, khs, &
+                kw,kso4, kflu, ph_scale, r, dr)
             !adapt bracketing interval
             if (r > 0._rk) then
                 h_min = h_prev
@@ -201,8 +206,8 @@ contains
 
     subroutine r_calc(h, alktot, dictot, bortot, po4tot, &
             siltot, nh4tot, hstot, so4tot, flutot, &
-            kc1, kc2, kb, kp1, kp2, kp3, ksi, kn, khs, kw, &
-            r, dr)
+            kc1, kc2, kb, kp1, kp2, kp3, ksi, kn, khs, &
+            kso4, kflu, kw, ph_scale, r, dr)
     !return value of main equation for given [H+]
     !and value of its derivative
 
@@ -225,7 +230,11 @@ contains
         real(rk), intent(in):: ksi !silicic acid
         real(rk), intent(in):: kn  !Ammonia
         real(rk), intent(in):: khs !Hydrogen sulfide
+        real(rk), intent(in):: kso4
+        real(rk), intent(in):: kflu
         real(rk), intent(in):: kw  !water
+        !ph_scale_factor
+        real(rk), intent(in):: ph_scale
         !output variables
         real(rk), intent(out):: r, dr
 
@@ -235,6 +244,8 @@ contains
         real(rk):: sil1, sil2, sil, ddsil, dsil
         real(rk):: nh4_1, nh4_2, nh4, ddnh4, dnh4
         real(rk):: h2s_1, h2s_2, h2s, ddh2s, dh2s
+        real(rk):: so4_1, so4_2, so4, ddso4,dso4
+        real(rk):: flu_1, flu_2, flu, ddflu, dflu
         real(rk):: wat
 
         !H2CO3 - HCO3 - CO3
@@ -261,11 +272,19 @@ contains
         h2s_1 =       khs
         h2s_2 =       khs + h
         h2s   = hstot * (h2s_1/h2s_2)
+        !HSO4 - SO4
+        so4_1 =       kso4
+        so4_2 =       kso4 + h
+        so4   = so4tot * (so4_1/so4_2 - 1._rk)
+        !HF - F
+        flu_1 =       kflu
+        flu_2 =       kflu + h
+        flu   = flutot * (flu_1/flu_2 - 1._rk)
         !H2O - OH
-        wat   = kw/h - h
+        wat   = kw/h - h/ph_scale
 
         r = dic + bor + po4 + sil &
-          + nh4 + h2s &
+          + nh4 + h2s + so4 + flu &
           + wat - alktot
 
         !H2CO3 - HCO3 - CO3
@@ -289,14 +308,20 @@ contains
         !H2S - HS
         ddh2s = khs
         dh2s  = -hstot * (ddh2s/h2s_2**2)
-
+        !HSO4 - SO4
+        ddso4 = kso4
+        dso4  = -so4tot * (ddso4/so4_2**2)
+        !HF - F
+        ddflu = kflu
+        dflu  = -flutot * (ddflu/flu_2**2)
+   
         dr = ddic + dbor + dpo4 + dsil &
-           + dnh4 + dh2s &
-           - kw/h**2 - 1._rk
+           + dnh4 + dh2s + dso4 + dflu &
+           - kw/h**2 - 1._rk/ph_scale
 
     end subroutine r_calc
 
 end module ph
 !-----------------------------------------------------------------------
-! Copyright Shamil Yakubov under the GNU Public License - www.gnu.org
+! Copyright (C) Shamil Yakubov under the GNU Public License - www.gnu.org
 !-----------------------------------------------------------------------
