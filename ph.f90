@@ -17,7 +17,7 @@ contains
 
     function ph_solver(alktot, dictot, bortot, &
             po4tot, siltot, nh4tot, hstot, so4tot, flutot, &
-            kc1, kc2, kb, kp1, kp2, kp3, ks, kn, khs, kw)
+            kc1, kc2, kb, kp1, kp2, kp3, ksi, kn, khs, kw)
 
         real(rk):: ph_solver
 
@@ -36,7 +36,7 @@ contains
         real(rk), intent(in):: kc2 !2nd of carbonic acid
         real(rk), intent(in):: kb  !boric acid
         real(rk), intent(in):: kp1, kp2, kp3 !phosphoric acid 
-        real(rk), intent(in):: ks  !silicic acid
+        real(rk), intent(in):: ksi !silicic acid
         real(rk), intent(in):: kn  !Ammonia
         real(rk), intent(in):: khs !Hydrogen sulfide
         real(rk), intent(in):: kw  !water
@@ -94,7 +94,7 @@ contains
             !and its derivative (dr)
             call r_calc(h, alktot, dictot, bortot, po4tot, &
                 siltot, nh4tot, hstot, so4tot, flutot, &
-                kc1, kc2, kb, kp1, kp2, kp3, ks, kn, khs, kw, &
+                kc1, kc2, kb, kp1, kp2, kp3, ksi, kn, khs, kw, &
                 r, dr)
             !adapt bracketing interval
             if (r > 0._rk) then
@@ -201,7 +201,7 @@ contains
 
     subroutine r_calc(h, alktot, dictot, bortot, po4tot, &
             siltot, nh4tot, hstot, so4tot, flutot, &
-            kc1, kc2, kb, kp1, kp2, kp3, ks, kn, khs, kw, &
+            kc1, kc2, kb, kp1, kp2, kp3, ksi, kn, khs, kw, &
             r, dr)
     !return value of main equation for given [H+]
     !and value of its derivative
@@ -222,7 +222,7 @@ contains
         real(rk), intent(in):: kc2 !2nd of carbonic acid
         real(rk), intent(in):: kb  !boric acid
         real(rk), intent(in):: kp1, kp2, kp3 !phosphoric acid 
-        real(rk), intent(in):: ks  !silicic acid
+        real(rk), intent(in):: ksi !silicic acid
         real(rk), intent(in):: kn  !Ammonia
         real(rk), intent(in):: khs !Hydrogen sulfide
         real(rk), intent(in):: kw  !water
@@ -250,8 +250,8 @@ contains
         po4_2 =       kp3 + h*(      kp2 + h*(kp1 + h))
         po4   = po4tot * (po4_1/po4_2 - 1._rk) ! Zero level of H3PO4 = 1
         !H4SiO4 - H3SiO4
-        sil1 =       ks
-        sil2 =       ks + h
+        sil1 =       ksi
+        sil2 =       ksi + h
         sil  = siltot * (sil1/sil2)
         !NH4 - NH3
         nh4_1 =       kn
@@ -281,7 +281,7 @@ contains
               + h*       kp1)))
         dpo4   = -po4tot * (ddpo4/po4_2**2)
         !H4SiO4 - H3SiO4
-        ddsil = ks
+        ddsil = ksi
         dsil  = -siltot * (ddsil/sil2**2)
         !NH4 - NH3
         ddnh4 = kn
@@ -298,5 +298,5 @@ contains
 
 end module ph
 !-----------------------------------------------------------------------
-! Copyright under the GNU Public License - www.gnu.org
+! Copyright Shamil Yakubov under the GNU Public License - www.gnu.org
 !-----------------------------------------------------------------------
