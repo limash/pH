@@ -15,13 +15,12 @@ module ph
 
 contains
 
-    function ph_solver(alktot, dictot, bortot, &
+    real(rk) function ph_solver(alktot, dictot, bortot, &
             po4tot, siltot, nh4tot, hstot, so4tot, flutot, &
             kc1, kc2, kb, kp1, kp2, kp3, ksi, kn, khs, &
-            kso4, kflu, kw)
+            kso4, kflu, kw, ph_scale) result(ans)
 
-        real(rk):: ph_solver
-
+        !mol/kg
         real(rk), intent(in):: alktot !total alkalinity
         real(rk), intent(in):: dictot !total dissolved
                                       !inorganic carbon
@@ -32,17 +31,19 @@ contains
         real(rk), intent(in):: hstot  !total hs
         real(rk), intent(in):: so4tot !total so4
         real(rk), intent(in):: flutot !total fluor
-        !dissociation constants
+        !dissociation constants mol/kg-SW in total pH scale
         real(rk), intent(in):: kc1 !1st of carbonic acid
         real(rk), intent(in):: kc2 !2nd of carbonic acid
         real(rk), intent(in):: kb  !boric acid
-        real(rk), intent(in):: kp1, kp2, kp3 !phosphoric acid 
+        real(rk), intent(in):: kp1, kp2, kp3 !phosphoric acid
         real(rk), intent(in):: ksi !silicic acid
         real(rk), intent(in):: kn  !Ammonia
         real(rk), intent(in):: khs !Hydrogen sulfide
         real(rk), intent(in):: kso4
         real(rk), intent(in):: kflu
         real(rk), intent(in):: kw  !water
+        !ph_scale factor - ratio H_Tot/H_free
+        real(rk), intent(in):: ph_scale
 
         !discriminant of the main equation R([H+])=0
         !r - value of main eq., dr - its derivative
@@ -55,12 +56,10 @@ contains
         real(rk):: h_min, h_max
         !required for convergence test
         real(rk):: h_fac
-        !ph_scale factor
-        real(rk):: ph_scale = 1._rk
         !auxiliary
         real(rk):: iter, absmin
         logical:: exitnow
-
+        
         !calculate initial [H+] value
         call initial_h_do(alktot, dictot, bortot, &
             kc1, kc2, kb, initial_h)
@@ -112,7 +111,6 @@ contains
             end if
 
             iter = iter + 1
-
             if (abs(r) >= 0.5_rk*absmin) then
             !bisection method pH-Alk space
                 h = sqrt(h_max*h_min)
@@ -144,7 +142,7 @@ contains
             if (exitnow) exit
         end do
 
-        ph_solver = h
+        ans = h
 
     end function ph_solver
 
@@ -320,7 +318,7 @@ contains
            - kw/h**2 - 1._rk/ph_scale
 
     end subroutine r_calc
-
+    
 end module ph
 !-----------------------------------------------------------------------
 ! Copyright (C) Shamil Yakubov under the GNU Public License - www.gnu.org
