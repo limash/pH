@@ -1,15 +1,11 @@
-!adopted from:
-!Munhoven, G.: Mathematics of the total alkalinity-pH equation
-! – pathway to robust and universal solution algorithms:
-! the SolveSAPHE package v1.0.1, Geosci. Model Dev., 6, 1367–
-! 1388, doi:10.5194/gmd-6-1367-2013, 2013.
+module ph_mod
 
-module ph
-
-    use fabm_types, only: rk
+    !use fabm_types, only: rk
 
     implicit none
     private
+
+    integer, parameter::rk = kind(1D0)
 
     public ph_solver
 
@@ -19,8 +15,13 @@ contains
             po4tot, siltot, nh4tot, hstot, so4tot, flutot, &
             kc1, kc2, kb, kp1, kp2, kp3, ksi, kn, khs, &
             kso4, kflu, kw, ph_scale) result(ans)
-
-        !mol/kg
+    !return [H+] concentration M/L
+    !adopted from:
+    !Munhoven, G.: Mathematics of the total alkalinity-pH equation
+    ! – pathway to robust and universal solution algorithms:
+    ! the SolveSAPHE package v1.0.1, Geosci. Model Dev., 6, 1367–
+    ! 1388, doi:10.5194/gmd-6-1367-2013, 2013.
+    
         real(rk), intent(in):: alktot !total alkalinity
         real(rk), intent(in):: dictot !total dissolved
                                       !inorganic carbon
@@ -59,7 +60,7 @@ contains
         !auxiliary
         real(rk):: iter, absmin
         logical:: exitnow
-        
+
         !calculate initial [H+] value
         call initial_h_do(alktot, dictot, bortot, &
             kc1, kc2, kb, initial_h)
@@ -69,7 +70,7 @@ contains
         alksup = dictot+dictot+bortot+ &
                  po4tot+po4tot+siltot+ &
                  nh4tot+hstot
- 
+
         !calculate discriminant for lower bound
         delta = (alktot-alkinf)**2+4._rk*kw/ph_scale
         !calculate lower bound
@@ -96,10 +97,14 @@ contains
             h_prev = h
             !return value (r) of main equation for given [H+]
             !and its derivative (dr)
-            call r_calc(h, alktot, dictot, bortot, po4tot, &
-                siltot, nh4tot, hstot, so4tot, flutot, &
-                kc1, kc2, kb, kp1, kp2, kp3, ksi, kn, khs, &
-                kw,kso4, kflu, ph_scale, r, dr)
+            !call r_calc(h, alktot, dictot, bortot, po4tot, &
+            !    siltot, nh4tot, hstot, so4tot, flutot, &
+            !    kc1, kc2, kb, kp1, kp2, kp3, ksi, kn, khs, &
+            !    kw,kso4, kflu, ph_scale, r, dr)
+            call r_calc_old(h, alktot, dictot, bortot, po4tot, &
+            siltot, nh4tot, hstot, &
+            kc1, kc2, kb, kp1, kp2, kp3, ksi, kn, khs, &
+            kw, r, dr)
             !adapt bracketing interval
             if (r > 0._rk) then
                 h_min = h_prev
@@ -148,6 +153,11 @@ contains
 
     subroutine initial_h_do(alktot, dictot, bortot, &
             kc1, kc2, kb, initial_h)
+    !adopted from:
+    !Munhoven, G.: Mathematics of the total alkalinity-pH equation
+    ! – pathway to robust and universal solution algorithms:
+    ! the SolveSAPHE package v1.0.1, Geosci. Model Dev., 6, 1367–
+    ! 1388, doi:10.5194/gmd-6-1367-2013, 2013.
     !calculates initial value for [H+]
 
         real(rk), intent(in):: alktot
@@ -206,9 +216,14 @@ contains
             siltot, nh4tot, hstot, so4tot, flutot, &
             kc1, kc2, kb, kp1, kp2, kp3, ksi, kn, khs, &
             kso4, kflu, kw, ph_scale, r, dr)
+    !adopted from:
+    !Munhoven, G.: Mathematics of the total alkalinity-pH equation
+    ! – pathway to robust and universal solution algorithms:
+    ! the SolveSAPHE package v1.0.1, Geosci. Model Dev., 6, 1367–
+    ! 1388, doi:10.5194/gmd-6-1367-2013, 2013.
     !return value of main equation for given [H+]
     !and value of its derivative
-
+    
         real(rk), intent(in):: h ![H+]
         real(rk), intent(in):: alktot !total alkalinity
         real(rk), intent(in):: dictot !total dissolved
@@ -235,7 +250,7 @@ contains
         real(rk), intent(in):: ph_scale
         !output variables
         real(rk), intent(out):: r, dr
-
+    
         real(rk):: dic1, dic2, dic, dddic, ddic
         real(rk):: bor1, bor2, bor, ddbor, dbor
         real(rk):: po4_1, po4_2, po4, ddpo4, dpo4
@@ -245,7 +260,7 @@ contains
         real(rk):: so4_1, so4_2, so4, ddso4,dso4
         real(rk):: flu_1, flu_2, flu, ddflu, dflu
         real(rk):: wat
-
+    
         !H2CO3 - HCO3 - CO3
         dic1 = 2._rk*kc2 + h*       kc1
         dic2 =       kc2 + h*(      kc1 + h)
@@ -280,11 +295,11 @@ contains
         flu   = flutot * (flu_1/flu_2 - 1._rk)
         !H2O - OH
         wat   = kw/h - h/ph_scale
-
+    
         r = dic + bor + po4 + sil &
           + nh4 + h2s + so4 + flu &
           + wat - alktot
-
+    
         !H2CO3 - HCO3 - CO3
         dddic = kc1*kc2 + h*(4._rk*kc2+h*kc1)
         ddic  = -dictot*(dddic/dic2**2)
@@ -312,14 +327,86 @@ contains
         !HF - F
         ddflu = kflu
         dflu  = -flutot * (ddflu/flu_2**2)
-   
+    
         dr = ddic + dbor + dpo4 + dsil &
            + dnh4 + dh2s + dso4 + dflu &
            - kw/h**2 - 1._rk/ph_scale
-
-    end subroutine r_calc
     
-end module ph
+    end subroutine r_calc
+
+    subroutine r_calc_old(H_, Alk, Ct, Bt, Pt, &
+            Sit, NHt, H2St, &
+            kc1, kc2, kb, kp1, kp2, kp3, ksi, Knh4, Kh2s, &
+            kw, r, dr)
+    !return value of main equation for given [H+]
+    !and value of its derivative
+    
+        real(rk), intent(in):: H_ ![H+]
+        real(rk), intent(in):: Alk !total alkalinity
+        real(rk), intent(in):: Ct !total dissolved
+                                      !inorganic carbon
+        real(rk), intent(in):: Bt !total boron
+        real(rk), intent(in):: Pt !total po4
+        real(rk), intent(in):: Sit !total silicate
+        real(rk), intent(in):: NHt !total nh3
+        real(rk), intent(in):: H2St  !total hs
+        !dissociation constants
+        real(rk), intent(in):: kc1 !1st of carbonic acid
+        real(rk), intent(in):: kc2 !2nd of carbonic acid
+        real(rk), intent(in):: kb  !boric acid
+        real(rk), intent(in):: kp1, kp2, kp3 !phosphoric acid 
+        real(rk), intent(in):: ksi !silicic acid
+        real(rk), intent(in):: Knh4  !Ammonia
+        real(rk), intent(in):: Kh2s !Hydrogen sulfide
+        real(rk), intent(in):: kw  !water
+        !output variables
+        real(rk), intent(out):: r, dr
+    
+        real(rk):: T1, T2, T12, K12p, K123p, HKR123p
+        
+        T1  = H_/Kc1
+        T2  = H_/Kc2
+        T12 = (1e0+T2+T1*T2)
+
+        K12p  = Kp1*Kp2
+        K123p = Kp1*Kp2*Kp3
+        HKR123p = 1e0/(((H_+Kp1)*H_+K12p)*H_+K123p)
+      
+        !"Alk"=[HCO3-]+2[CO3--]
+        !i.e.=([H]/Kc2+2.)*Ct/(1+[H]/Kc2+[H]*[H]/(Kc1*Kc2)) carbonate alkalinity
+        r = Ct*(2.+H_/Kc2)/(1.+H_/Kc2+H_/Kc1*H_/Kc2) &
+        ![B(OH)4-] i.e.= Btot*Kb/(Kb+[H+]) boric alkalinity     
+        + Bt*Kb/(Kb+H_) &
+        ![OH-] i.e.= Kw/[H+]
+        + Kw/H_ &
+        ![H+]
+        - H_ &
+        !Alk_tot 
+        - Alk &
+        ![HPO4--]+2.*[PO4---]-[H3PO4-] i.e. phosphoric alkalinity          
+        + Pt*((Kp1*Kp2-H_*H_)*H_+2e0*Kp1*Kp2*Kp3) &
+        / (((H_+Kp1)*H_+Kp1*Kp2)*H_+Kp1*Kp2*Kp3) &
+        ![H3SiO4-] i.e.=Sit*KSi/(KSi+[H+])! silicate alkalinity
+        + Sit*KSi/(KSi+H_) &      
+        ![HS-] i.e.=[H2St]*Kh2s1/(Kh2s1+[H+]) hydrogen sulfide alkalinity          
+        + H2St*Kh2s/(Kh2s+H_) &        
+        ![NH3] i.e.=NHt*Knh4/(Knh4+[H+]) ammonia alkalinity
+        + NHt*Knh4/(Knh4+H_)
+    
+        !d(AH)/d[H+]
+        dr = Ct*(T2-4e0*T1-T12)/(Kc2*T12*T12) &
+        - Bt*Kb/(Kb+H_)**2. &
+        - Kw/H_**2.-1. &
+        - Pt*((((Kp1*H_+4e0*K12p)*H_ &
+        + Kp1*K12p+9e0*K123p)*H_ &
+        + 4e0*Kp1*K123p)*H_+K12p*K123p)*HKR123p*HKR123p &    
+        - Sit*KSi/(KSi+H_)**2. &
+        - H2St*Kh2s/(Kh2s+H_)**2. &
+        - NHt*Knh4/(Knh4+H_)**2.  
+      
+    end subroutine r_calc_old
+
+end module ph_mod
 !-----------------------------------------------------------------------
 ! Copyright (C) Shamil Yakubov under the GNU Public License - www.gnu.org
 !-----------------------------------------------------------------------
